@@ -7,6 +7,16 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        // Função auxiliar para formatação de números no padrão brasileiro
+        function formatarBR(valor, decimais = 2) {
+            if (typeof valor !== 'number') valor = parseFloat(valor) || 0;
+            return valor.toLocaleString('pt-BR', {
+                minimumFractionDigits: decimais,
+                maximumFractionDigits: decimais
+            });
+        }
+    </script>
     <style>
         :root {
             --primary-color: #3498db;
@@ -639,52 +649,10 @@
             </div>
         </div>
     </div>
-
-    <script>
-        // Função auxiliar para formatação de números no padrão brasileiro
-        function formatarBR(valor, decimais = 2) {
-            if (typeof valor !== 'number') valor = parseFloat(valor) || 0;
-            return valor.toLocaleString('pt-BR', {
-                minimumFractionDigits: decimais,
-                maximumFractionDigits: decimais
-            });
-        }
-
-        // As classes de cálculo mantidas da parte 1...
-        class ConfiguracaoTributaria {
-            constructor() {
-                // ... (mantém o código da parte 1)
-            }
-        }
-
-        class CalculadoraTributosAtuais {
-            constructor(configuracao) {
-                // ... (mantém o código da parte 1)
-            }
-        }
-
-        class CalculadoraIVADual {
-            constructor(configuracao) {
-                // ... (mantém o código da parte 1)
-            }
-        }
-
-        // Continuação na próxima parte para adicionar a lógica de interface e manipuladores de eventos
-        console.log("Parte 2: Interface HTML criada com sucesso!");
-    </script>
+    
 </body>
 </html>
-    
-    <script>
-        // Função auxiliar para formatação de números no padrão brasileiro
-        function formatarBR(valor, decimais = 2) {
-            if (typeof valor !== 'number') valor = parseFloat(valor) || 0;
-            return valor.toLocaleString('pt-BR', {
-                minimumFractionDigits: decimais,
-                maximumFractionDigits: decimais
-            });
-        }
-
+    <script>        
         // Manter as classes de cálculo das partes 1 e 2...
         // Classes para a lógica de negócio - Parte 1: Classes de Cálculo
         class ConfiguracaoTributaria {
