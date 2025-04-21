@@ -6,15 +6,78 @@
     <title>Simulador da Reforma Tributária - IVA Dual (CBS/IBS)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script>
         // Função auxiliar para formatação de números no padrão brasileiro
         function formatarBR(valor, decimais = 2) {
-            if (typeof valor !== 'number') valor = parseFloat(valor) || 0;
+            // Trata valores indefinidos ou NaN
+            if (valor === undefined || valor === null || isNaN(valor)) {
+                valor = 0;
+            }
+            
+            // Se não for um número, tenta converter
+            if (typeof valor !== 'number') {
+                valor = parseFloat(valor) || 0;
+            }
+            
             return valor.toLocaleString('pt-BR', {
                 minimumFractionDigits: decimais,
                 maximumFractionDigits: decimais
             });
+        }
+        // 1. Adicione esta função no início da seção de script, antes de qualquer uso dela:
+        function obterValorNumerico(campo) {
+            if (!campo) return 0;
+            
+            // Se já for uma string, assume que é o valor
+            if (typeof campo === 'string') {
+                let valor = campo;
+                // Remove a máscara monetária (R$, pontos e espaços)
+                valor = valor.replace(/[R$\s.]/g, '');
+                // Substitui vírgula por ponto (formato decimal)
+                valor = valor.replace(',', '.');
+                // Converte para número
+                const resultado = parseFloat(valor);
+                // Se não for um número válido, retorna 0
+                return isNaN(resultado) ? 0 : resultado;
+            }
+            
+            // Se for um elemento DOM
+            if (campo.value !== undefined) {
+                let valor = campo.value;
+                // Se estiver vazio ou com valor inicial
+                if (valor === '' || valor === 'R$ 0,00') return 0;
+                // Remove a máscara monetária (R$, pontos e espaços)
+                valor = valor.replace(/[R$\s.]/g, '');
+                // Substitui vírgula por ponto (formato decimal)
+                valor = valor.replace(',', '.');
+                // Converte para número
+                const resultado = parseFloat(valor);
+                // Se não for um número válido, retorna 0
+                return isNaN(resultado) ? 0 : resultado;
+            }
+            
+            return 0;
+        }
+        // Adicione a nova função aqui:
+        function solicitarNomeArquivo(extensao, nomeDefault) {
+            let nomeArquivo = prompt(
+                `Digite o nome do arquivo para salvar (sem a extensão .${extensao}):`, 
+                nomeDefault || `relatorio-${new Date().toISOString().slice(0, 10)}`
+            );
+            
+            if (nomeArquivo === null) {
+                return null;
+            }
+            
+            nomeArquivo = nomeArquivo.replace(/[<>:"/\\|?*]/g, '-');
+            
+            if (!nomeArquivo.trim()) {
+                nomeArquivo = nomeDefault || `relatorio-${new Date().toISOString().slice(0, 10)}`;
+            }
+            
+            return `${nomeArquivo}.${extensao}`;
         }
     </script>
     <style>
@@ -330,19 +393,19 @@
                             <h3>Dados da Empresa</h3>
                             <div class="form-group">
                                 <label for="faturamento">Faturamento Anual:</label>
-                                <input type="number" id="faturamento" value="0" step="1000">
+                                <input type="text" id="faturamento" value="0">
                             </div>
                             <div class="form-group">
                                 <label for="custos">Custos Tributáveis:</label>
-                                <input type="number" id="custos" value="0" step="1000">
+                                <input type="text" id="custos" value="0">
                             </div>
                             <div class="form-group">
                                 <label for="custos_simples">Custos de Fornecedores do Simples:</label>
-                                <input type="number" id="custos_simples" value="0" step="1000">
+                                <input type="text" id="custos_simples" value="0">
                             </div>
                             <div class="form-group">
                                 <label for="creditos_anteriores">Créditos Anteriores:</label>
-                                <input type="number" id="creditos_anteriores" value="0" step="1000">
+                                <input type="text" id="creditos_anteriores" value="0">
                             </div>
                             <div class="form-group">
                                 <label for="setor">Setor de Atividade:</label>
@@ -1928,10 +1991,10 @@
             try {
                 // Coletar dados da empresa
                 const dadosEmpresa = {
-                    "faturamento": parseFloat(document.getElementById('faturamento').value) || 0,
-                    "custos_tributaveis": parseFloat(document.getElementById('custos').value) || 0,
-                    "custos_simples": parseFloat(document.getElementById('custos_simples').value) || 0,
-                    "creditos_anteriores": parseFloat(document.getElementById('creditos_anteriores').value) || 0,
+                    "faturamento": obterValorNumerico(document.getElementById('faturamento')),
+                    "custos_tributaveis": obterValorNumerico(document.getElementById('custos')),
+                    "custos_simples": obterValorNumerico(document.getElementById('custos_simples')),
+                    "creditos_anteriores": obterValorNumerico(document.getElementById('creditos_anteriores')),
                     "setor": document.getElementById('setor').value,
                     "regime": document.getElementById('regime').value,
                     "imposto_devido": 0
@@ -2337,6 +2400,35 @@
                 document.body.removeChild(a);
                 window.URL.revokeObjectURL(url);
             });
+
+            // Adicionar máscara de moeda nos campos de valor
+                const camposMoeda = [
+                    'faturamento',
+                    'custos',
+                    'custos_simples',
+                    'creditos_anteriores'
+                ];
+                
+                camposMoeda.forEach(campoId => {
+                    const campo = document.getElementById(campoId);
+                    if (campo) {
+                        // Formatar o valor inicial
+                        if (campo.value === '0') {
+                            campo.value = 'R$ 0,00';
+                        }
+                        
+                        campo.addEventListener('keyup', function() {
+                            formatarMoeda(this);
+                        });
+                        
+                        // Ao sair do campo, garantir formatação
+                        campo.addEventListener('blur', function() {
+                            if (!this.value) {
+                                this.value = 'R$ 0,00';
+                            }
+                        });
+                    }
+                });
             
             // Carregar configurações se existirem
             const configSalva = localStorage.getItem('configuracao_tributaria');
@@ -2728,22 +2820,25 @@
         // Funções de exportação (início da implementação)
         
         function exportarParaPDF() {
-            if (!window.jspdf) {
+            if (typeof jspdf === 'undefined' || !jspdf.jsPDF) {
                 alert('Biblioteca jsPDF não carregada. Por favor, aguarde e tente novamente.');
                 return;
             }
-            
-            const { jsPDF } = window.jspdf;
+            const { jsPDF } = jspdf;
             
             if (!resultados || Object.keys(resultados).length === 0) {
                 alert('Execute uma simulação antes de exportar os resultados.');
                 return;
             }
-            
+             // Solicita o nome do arquivo ao usuário
+            const nomeArquivo = solicitarNomeArquivo('pdf', 'simulacao-reforma-tributaria');
+            if (!nomeArquivo) {
+                return; // Usuário cancelou
+            }
             try {
                 // Criar documento PDF
                 const doc = new jsPDF({
-                    orientation: 'landscape',
+                    orientation: 'portrait',
                     unit: 'mm',
                     format: 'a4'
                 });
@@ -2765,11 +2860,13 @@
                 let y = 45;
                 
                 // Dados da empresa
-                const parametros = [
-                    ['Faturamento Anual', `R$ ${formatarBR(parseFloat(document.getElementById('faturamento').value))}`],
-                    ['Custos Tributáveis', `R$ ${formatarBR(parseFloat(document.getElementById('custos').value))}`],
-                    ['Fornecedores do Simples', `R$ ${formatarBR(parseFloat(document.getElementById('custos_simples').value))}`],
-                    ['Créditos Anteriores', `R$ ${formatarBR(parseFloat(document.getElementById('creditos_anteriores').value))}`],
+                // Atualizar estas linhas na função exportarParaPDF:
+
+                const parametrosBasicos = [
+                    ['Faturamento Anual', `R$ ${formatarBR(obterValorNumerico(document.getElementById('faturamento').value))}`],
+                    ['Custos Tributáveis', `R$ ${formatarBR(obterValorNumerico(document.getElementById('custos').value))}`],
+                    ['Fornecedores do Simples', `R$ ${formatarBR(obterValorNumerico(document.getElementById('custos_simples').value))}`],
+                    ['Créditos Anteriores', `R$ ${formatarBR(obterValorNumerico(document.getElementById('creditos_anteriores').value))}`],
                     ['Setor de Atividade', document.getElementById('setor').value],
                     ['Regime Tributário', document.getElementById('regime').value],
                     ['Carga Tributária Atual', `${document.getElementById('carga_atual').value}%`],
@@ -2847,7 +2944,11 @@
                 alert('Execute uma simulação antes de exportar os resultados.');
                 return;
             }
-            
+            // Solicita o nome do arquivo ao usuário
+            const nomeArquivo = solicitarNomeArquivo('xlsx', 'simulacao-reforma-tributaria');
+            if (!nomeArquivo) {
+                return; // Usuário cancelou
+            }
             try {
                 // Criar workbook
                 const wb = XLSX.utils.book_new();
@@ -2858,10 +2959,10 @@
                     ['Data do relatório', new Date().toLocaleString('pt-BR')],
                     [],
                     ['Parâmetro', 'Valor'],
-                    ['Faturamento Anual', `R$ ${formatarBR(parseFloat(document.getElementById('faturamento').value))}`],
-                    ['Custos Tributáveis', `R$ ${formatarBR(parseFloat(document.getElementById('custos').value))}`],
-                    ['Fornecedores do Simples', `R$ ${formatarBR(parseFloat(document.getElementById('custos_simples').value))}`],
-                    ['Créditos Anteriores', `R$ ${formatarBR(parseFloat(document.getElementById('creditos_anteriores').value))}`],
+                    ['Faturamento Anual', `R$ ${formatarBR(obterValorNumerico(document.getElementById('faturamento')))}`],
+                    ['Custos Tributáveis', `R$ ${formatarBR(obterValorNumerico(document.getElementById('custos')))}`],
+                    ['Fornecedores do Simples', `R$ ${formatarBR(obterValorNumerico(document.getElementById('custos_simples')))}`],
+                    ['Créditos Anteriores', `R$ ${formatarBR(obterValorNumerico(document.getElementById('creditos_anteriores')))}`],
                     ['Setor de Atividade', document.getElementById('setor').value],
                     ['Regime Tributário', document.getElementById('regime').value],
                     ['Carga Tributária Atual', `${document.getElementById('carga_atual').value}%`],
@@ -2991,10 +3092,10 @@
                 
                 // Dados da empresa
                 const parametrosBasicos = [
-                    ['Faturamento Anual', `R$ ${formatarBR(parseFloat(document.getElementById('faturamento').value))}`],
-                    ['Custos Tributáveis', `R$ ${formatarBR(parseFloat(document.getElementById('custos').value))}`],
-                    ['Fornecedores do Simples', `R$ ${formatarBR(parseFloat(document.getElementById('custos_simples').value))}`],
-                    ['Créditos Anteriores', `R$ ${formatarBR(parseFloat(document.getElementById('creditos_anteriores').value))}`],
+                    ['Faturamento Anual', `R$ ${formatarBR(obterValorNumerico(document.getElementById('faturamento').value))}`],
+                    ['Custos Tributáveis', `R$ ${formatarBR(obterValorNumerico(document.getElementById('custos').value))}`],
+                    ['Fornecedores do Simples', `R$ ${formatarBR(obterValorNumerico(document.getElementById('custos_simples').value))}`],
+                    ['Créditos Anteriores', `R$ ${formatarBR(obterValorNumerico(document.getElementById('creditos_anteriores').value))}`],
                     ['Setor de Atividade', document.getElementById('setor').value],
                     ['Regime Tributário', document.getElementById('regime').value],
                     ['Carga Tributária Atual', `${document.getElementById('carga_atual').value}%`],
@@ -3305,10 +3406,10 @@
                     ['Data do relatório', new Date().toLocaleString('pt-BR')],
                     [],
                     ['Parâmetro', 'Valor'],
-                    ['Faturamento Anual', `R$ ${formatarBR(parseFloat(document.getElementById('faturamento').value))}`],
-                    ['Custos Tributáveis', `R$ ${formatarBR(parseFloat(document.getElementById('custos').value))}`],
-                    ['Fornecedores do Simples', `R$ ${formatarBR(parseFloat(document.getElementById('custos_simples').value))}`],
-                    ['Créditos Anteriores', `R$ ${formatarBR(parseFloat(document.getElementById('creditos_anteriores').value))}`],
+                    ['Faturamento Anual', `R$ ${formatarBR(obterValorNumerico(document.getElementById('faturamento').value))}`],
+                    ['Custos Tributáveis', `R$ ${formatarBR(obterValorNumerico(document.getElementById('custos').value))}`],
+                    ['Fornecedores do Simples', `R$ ${formatarBR(obterValorNumerico(document.getElementById('custos_simples').value))}`],
+                    ['Créditos Anteriores', `R$ ${formatarBR(obterValorNumerico(document.getElementById('creditos_anteriores').value))}`],
                     ['Setor de Atividade', document.getElementById('setor').value],
                     ['Regime Tributário', document.getElementById('regime').value],
                     ['Carga Tributária Atual', `${document.getElementById('carga_atual').value}%`],
@@ -3683,10 +3784,14 @@
             // Adicionar máscara de moeda nos campos de valor
             function formatarMoeda(input) {
                 let valor = input.value.replace(/\D/g, '');
-                valor = (valor / 100).toFixed(2) + '';
-                valor = valor.replace(".", ",");
-                valor = valor.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
-                input.value = valor;
+                
+                if (!valor) {
+                    input.value = 'R$ 0,00';
+                    return;
+                }
+                
+                const valorNumerico = parseFloat(valor) / 100;
+                input.value = 'R$ ' + formatarBR(valorNumerico);
             }
             
             const camposMoeda = [
